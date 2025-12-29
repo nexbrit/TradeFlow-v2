@@ -38,6 +38,10 @@ pyyaml==6.0.1
 # Terminal UI
 rich==13.7.0
 
+# Web Dashboard
+streamlit==1.29.0
+streamlit-option-menu==0.3.6
+
 # Statistical Analysis
 scipy==1.11.4
 
