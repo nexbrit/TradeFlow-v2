@@ -522,18 +522,19 @@ data/
 
 **Performance Page:**
 
-- [ ] **4.3.3** Enhanced Analytics
-  - [ ] Add date range selector (7D, 30D, 90D, YTD, All)
-  - [ ] Show rolling returns (7-day, 30-day, 90-day)
-  - [ ] Add benchmark comparison (vs Nifty returns)
-  - [ ] Calendar heatmap of daily P&L
-  - [ ] Win rate calculation with confidence interval
+- [x] **4.3.3** Enhanced Analytics ✅ **COMPLETED**
+  - [x] Date range selector with presets (7D, 30D, 90D, YTD, All, Custom)
+  - [x] Rolling returns display (7-day, 30-day, 90-day)
+  - [x] Benchmark comparison vs Nifty with alpha calculation
+  - [x] Calendar heatmap of monthly P&L
+  - [x] Win rate with 95% confidence interval
 
-- [ ] **4.3.4** Interactive Charts
-  - [ ] Make equity curve zoomable
-  - [ ] Add drawdown overlay on equity curve
-  - [ ] Hover tooltip with trade details
-  - [ ] Export chart as PNG
+- [x] **4.3.4** Interactive Charts ✅ **COMPLETED**
+  - [x] Zoomable equity curve with range slider
+  - [x] Drawdown overlay on equity curve subplot
+  - [x] Hover tooltips with trade details (Date, Value, %)
+  - [x] Export chart as PNG (Plotly modebar)
+  - [x] Range selector buttons on chart
 
 **Strategy Builder Page:**
 
