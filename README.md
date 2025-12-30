@@ -1,4 +1,4 @@
-# F&O Trading Application
+# TradeFlow v2
 
 A comprehensive Python-based F&O (Futures & Options) trading platform featuring live signal generation, Upstox API integration, and data-driven screeners using pandas.
 
@@ -46,7 +46,7 @@ Based on research, the platform includes:
 
 1. **Clone the repository**
 ```bash
-cd fno_trading_app
+cd tradeflow-v2
 ```
 
 2. **Install dependencies**
@@ -72,7 +72,7 @@ Edit `config/config.yaml` to customize:
 ### Basic Usage
 
 ```python
-from fno_trading_app import FNOTradingApp
+from tradeflow import FNOTradingApp
 
 # Initialize the application
 app = FNOTradingApp()
@@ -94,7 +94,7 @@ app.live_monitoring(instruments, interval_seconds=300)
 ### Signal Generation Example
 
 ```python
-from fno_trading_app import SignalGenerator
+from tradeflow import SignalGenerator
 import pandas as pd
 
 # Create sample data or fetch from Upstox
@@ -119,7 +119,7 @@ print(f"Signal: {latest['signal']}, Strength: {latest['strength']}")
 ### Screener Example
 
 ```python
-from fno_trading_app import FNOScreener
+from tradeflow import FNOScreener
 import pandas as pd
 
 # Initialize screener
@@ -157,7 +157,7 @@ option_analysis = app.get_option_chain_analysis(
 ## Architecture
 
 ```
-fno_trading_app/
+tradeflow/
 ├── api/                    # Upstox API integration
 │   ├── __init__.py
 │   └── upstox_client.py   # API wrapper with all endpoints
@@ -342,7 +342,7 @@ pytest tests/
 
 Run with coverage:
 ```bash
-pytest --cov=fno_trading_app tests/
+pytest --cov=tradeflow tests/
 ```
 
 ## Roadmap

@@ -1,10 +1,10 @@
 """
-F&O Trading Application
+TradeFlow v2
 A comprehensive trading platform with live signals, Upstox integration, and pandas screeners
 """
 
-__version__ = "1.0.0"
-__author__ = "FNO Trading Team"
+__version__ = "2.0.0"
+__author__ = "TradeFlow Team"
 
 from .main import FNOTradingApp
 from .api import UpstoxClient
