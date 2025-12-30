@@ -206,12 +206,20 @@ class OptionsChainDownloader:
                 'path': None
             }
 
-    # Lot sizes for common F&O instruments (updated periodically by NSE)
+    # Lot sizes for common F&O instruments (updated Dec 2024)
+    # NSE revises lot sizes periodically - verify at NSE website
     LOT_SIZES = {
-        'NIFTY': 25,
-        'BANKNIFTY': 15,
-        'FINNIFTY': 25,
-        'MIDCPNIFTY': 50,
+        # NSE Index Options (updated Nov 2024)
+        'NIFTY': 75,           # Nifty 50
+        'BANKNIFTY': 35,       # Nifty Bank
+        'FINNIFTY': 65,        # Nifty Financial Services
+        'MIDCPNIFTY': 140,     # Nifty Midcap Select
+        'NIFTYNXT50': 25,      # Nifty Next 50
+        # BSE Index Options
+        'SENSEX': 20,          # BSE Sensex
+        'BANKEX': 30,          # BSE Bankex
+        'SENSEX50': 75,        # BSE Sensex 50
+        # Stock Options (verify current lot sizes at NSE)
         'RELIANCE': 250,
         'TCS': 150,
         'HDFCBANK': 550,
@@ -565,16 +573,22 @@ class OptionsChainDownloader:
         Returns:
             DataFrame with demo option chain
         """
-        # Base price for underlying
+        # Base price and lot size for underlying
         if 'BANKNIFTY' in underlying.upper():
             spot = 51000
-            lot_size = 15
+        elif 'FINNIFTY' in underlying.upper():
+            spot = 24500
+        elif 'MIDCPNIFTY' in underlying.upper():
+            spot = 12000
         elif 'NIFTY' in underlying.upper():
             spot = 24000
-            lot_size = 25
+        elif 'SENSEX' in underlying.upper():
+            spot = 78000
         else:
             spot = 1000
-            lot_size = 100
+
+        # Use the class LOT_SIZES dictionary
+        lot_size = self._get_lot_size(underlying)
 
         # Generate strikes around ATM
         strike_step = 50 if 'NIFTY' in underlying.upper() else 100
