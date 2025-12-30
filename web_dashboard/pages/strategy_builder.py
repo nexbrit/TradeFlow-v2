@@ -119,7 +119,7 @@ def show_options_strategies():
             })
 
         if legs_data:
-            st.dataframe(pd.DataFrame(legs_data), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(legs_data), hide_index=True, width="stretch")
 
         # P&L Profile
         st.markdown("#### P&L Profile")
@@ -213,26 +213,26 @@ def show_options_strategies():
                     showlegend=False
                 )
 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
     # Action buttons
     st.markdown("---")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        if st.button("📝 Save Strategy", use_container_width=True):
+        if st.button("📝 Save Strategy", width="stretch"):
             st.success("Strategy saved to watchlist!")
 
     with col2:
-        if st.button("🎯 Execute Strategy", use_container_width=True):
+        if st.button("🎯 Execute Strategy", width="stretch"):
             st.info("Order placement interface would open here")
 
     with col3:
-        if st.button("📊 Backtest", use_container_width=True):
+        if st.button("📊 Backtest", width="stretch"):
             st.info("Backtesting this strategy...")
 
     with col4:
-        if st.button("📧 Get Alert", use_container_width=True):
+        if st.button("📧 Get Alert", width="stretch"):
             st.success("Alert configured!")
 
 
@@ -348,7 +348,7 @@ def show_directional_strategies():
         st.info("📈 **Momentum:** Strong bullish momentum")
         st.info("🔊 **Volume:** Above average")
 
-        if st.button("🎯 Execute Trade", use_container_width=True):
+        if st.button("🎯 Execute Trade", width="stretch"):
             st.success("Trade executed!")
 
 
@@ -408,7 +408,7 @@ def show_spread_builder():
     st.markdown("---")
 
     # Build and analyze spread
-    if st.button("📊 Build Spread", use_container_width=True, type="primary"):
+    if st.button("📊 Build Spread", width="stretch", type="primary"):
         builder = SpreadBuilder(spot_price=spot_price, lot_size=lot_size)
 
         for leg in legs:
@@ -472,4 +472,4 @@ def show_spread_builder():
                     height=400
                 )
 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")

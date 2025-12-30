@@ -67,7 +67,7 @@ def show_active_positions():
     st.dataframe(
         positions_df.style.apply(style_positions, axis=1),
         hide_index=True,
-        use_container_width=True
+        width="stretch"
     )
 
     # Total P&L
@@ -124,21 +124,21 @@ def show_active_positions():
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            if st.button("✏️ Modify Stop Loss", use_container_width=True):
+            if st.button("✏️ Modify Stop Loss", width="stretch"):
                 new_sl = st.number_input("New Stop Loss", value=pos['Stop Loss'])
                 if st.button("Update SL"):
                     st.success("Stop loss updated!")
 
         with col2:
-            if st.button("🎯 Modify Target", use_container_width=True):
+            if st.button("🎯 Modify Target", width="stretch"):
                 st.info("Target modification interface")
 
         with col3:
-            if st.button("➕ Add to Position", use_container_width=True):
+            if st.button("➕ Add to Position", width="stretch"):
                 st.info("Adding to position...")
 
         with col4:
-            if st.button("❌ Close Position", use_container_width=True, type="primary"):
+            if st.button("❌ Close Position", width="stretch", type="primary"):
                 st.warning("Confirm position closure?")
 
 
@@ -171,7 +171,7 @@ def show_orders():
             with col2:
                 target = st.number_input("Target (Optional)", value=0.0)
 
-            if st.button("📝 Place Order", use_container_width=True, type="primary"):
+            if st.button("📝 Place Order", width="stretch", type="primary"):
                 st.success("Order placed successfully!")
 
     with order_tab2:
@@ -184,7 +184,7 @@ def show_orders():
             'Status': ['EXECUTED', 'EXECUTED', 'EXECUTED']
         }
 
-        st.dataframe(pd.DataFrame(executed_orders), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(executed_orders), hide_index=True, width="stretch")
 
     with order_tab3:
         st.info("No cancelled orders today")
@@ -241,7 +241,7 @@ def show_trade_history():
     st.dataframe(
         trades_df.style.apply(style_trades, axis=1),
         hide_index=True,
-        use_container_width=True
+        width="stretch"
     )
 
     # Summary

@@ -38,12 +38,12 @@ def show_api_settings():
 
         col1, col2 = st.columns(2)
         with col1:
-            submitted = st.form_submit_button("💾 Save Credentials", use_container_width=True)
+            submitted = st.form_submit_button("💾 Save Credentials", width="stretch")
             if submitted:
                 st.success("✅ Credentials saved securely!")
 
         with col2:
-            test = st.form_submit_button("🧪 Test Connection", use_container_width=True)
+            test = st.form_submit_button("🧪 Test Connection", width="stretch")
             if test:
                 st.info("Testing connection...")
 
@@ -110,7 +110,7 @@ def show_trading_rules():
         emergency_dd = st.slider("Emergency Level (%)", 15.0, 30.0, 20.0, 0.5)
 
     # Save button
-    if st.button("💾 Save Trading Rules", use_container_width=True, type="primary"):
+    if st.button("💾 Save Trading Rules", width="stretch", type="primary"):
         # Save to session state
         st.session_state.rules_config = {
             'max_trades_per_day': max_trades,
@@ -184,7 +184,7 @@ def show_preferences():
         number_format = st.selectbox("Number Format", ["Indian (1,00,000)", "International (100,000)"])
 
     # Save
-    if st.button("💾 Save Preferences", use_container_width=True, type="primary"):
+    if st.button("💾 Save Preferences", width="stretch", type="primary"):
         st.success("✅ Preferences saved!")
 
 
@@ -260,19 +260,19 @@ def show_about():
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        if st.button("📚 View Documentation", use_container_width=True):
+        if st.button("📚 View Documentation", width="stretch"):
             st.info("Opening documentation...")
 
     with col2:
-        if st.button("🔄 Check for Updates", use_container_width=True):
+        if st.button("🔄 Check for Updates", width="stretch"):
             st.success("You're on the latest version!")
 
     with col3:
-        if st.button("📊 Export Logs", use_container_width=True):
+        if st.button("📊 Export Logs", width="stretch"):
             st.info("Exporting system logs...")
 
     with col4:
-        if st.button("🗑️ Clear Cache", use_container_width=True):
+        if st.button("🗑️ Clear Cache", width="stretch"):
             st.cache_data.clear()
             st.success("Cache cleared!")
 

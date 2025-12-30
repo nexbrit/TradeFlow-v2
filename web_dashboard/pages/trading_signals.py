@@ -68,7 +68,7 @@ def show():
 
     st.dataframe(
         signals_df.style.apply(highlight_signal, axis=1),
-        use_container_width=True,
+        width="stretch",
         hide_index=True
     )
 
@@ -178,7 +178,7 @@ def show():
             margin=dict(l=0, r=0, t=0, b=0)
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     st.markdown("---")
 
@@ -212,8 +212,8 @@ def show():
         return ''
 
     st.dataframe(
-        history_df.style.applymap(color_status, subset=['Status']),
-        use_container_width=True,
+        history_df.style.map(color_status, subset=['Status']),
+        width='stretch',
         hide_index=True
     )
 

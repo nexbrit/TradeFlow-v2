@@ -22,11 +22,11 @@ def show():
         )
 
     with col2:
-        if st.button("📊 Generate Report", use_container_width=True):
+        if st.button("📊 Generate Report", width="stretch"):
             st.success("Report generated!")
 
     with col3:
-        if st.button("📥 Export Data", use_container_width=True):
+        if st.button("📥 Export Data", width="stretch"):
             st.download_button(
                 "Download CSV",
                 pd.DataFrame().to_csv(),
@@ -123,7 +123,7 @@ def show():
         )
 
         fig.update_layout(height=500, showlegend=False, hovermode='x unified')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with col2:
         st.subheader("📅 Monthly Returns Heatmap")
@@ -150,7 +150,7 @@ def show():
         ))
 
         fig.update_layout(height=150, margin=dict(l=0, r=0, t=20, b=0))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         # P&L Distribution
         st.subheader("📊 P&L Distribution")
@@ -185,7 +185,7 @@ def show():
             showlegend=True
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     st.markdown("---")
 
@@ -227,7 +227,7 @@ def show():
         fig.update_yaxes(title_text="Win Rate (%)", row=2, col=1)
 
         fig.update_layout(height=500, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with col2:
         st.subheader("📊 Strategy Performance Comparison")
@@ -259,13 +259,13 @@ def show():
             height=250
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         # Strategy table
         st.dataframe(
             strategy_df.style.background_gradient(subset=['Return %'], cmap='RdYlGn'),
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
 
     st.markdown("---")
@@ -299,7 +299,7 @@ def show():
     st.dataframe(
         trades_df.style.apply(highlight_pnl, axis=1),
         hide_index=True,
-        use_container_width=True
+        width="stretch"
     )
 
     # Summary stats

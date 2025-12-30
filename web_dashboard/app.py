@@ -5,6 +5,7 @@ Web-based interface using Streamlit for user-friendly trading
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import sys
@@ -82,7 +83,7 @@ if 'initialized' not in st.session_state:
 
 # Sidebar
 with st.sidebar:
-    st.image("https://via.placeholder.com/200x80/1f77b4/ffffff?text=F%26O+Trading", use_container_width=True)
+    st.image("https://via.placeholder.com/200x80/1f77b4/ffffff?text=F%26O+Trading", width='stretch')
 
     st.markdown("---")
 
@@ -258,8 +259,8 @@ if page == "🏠 Dashboard":
             return f'color: {color}'
 
         st.dataframe(
-            positions_df.style.applymap(color_pnl, subset=['P&L']),
-            use_container_width=True,
+            positions_df.style.map(color_pnl, subset=['P&L']),
+            width='stretch',
             hide_index=True
         )
 
@@ -303,7 +304,7 @@ if page == "🏠 Dashboard":
     dates = pd.date_range(end=datetime.now(), periods=30, freq='D')
     equity = [100000]
     for i in range(29):
-        change = pd.np.random.normal(200, 500)
+        change = np.random.normal(200, 500)
         equity.append(equity[-1] + change)
 
     fig = go.Figure()
@@ -327,7 +328,7 @@ if page == "🏠 Dashboard":
         margin=dict(l=0, r=0, t=0, b=0)
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 elif page == "📊 Trading Signals":
     from pages import trading_signals
