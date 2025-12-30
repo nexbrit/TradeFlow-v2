@@ -43,7 +43,7 @@ class FNOTradingApp:
         )
 
         self.logger.info("=" * 60)
-        self.logger.info("F&O Trading Application Starting")
+        self.logger.info("TradeFlow v2 - F&O Trading Application Starting")
         self.logger.info("=" * 60)
 
         # Initialize components
@@ -282,29 +282,35 @@ class FNOTradingApp:
 
 def main():
     """Main entry point"""
+    # Fix Windows console encoding for Unicode support
+    import sys
+    import io
+    if sys.platform == 'win32':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
     print("\n" + "=" * 60)
-    print("F&O Trading Application")
+    print("TradeFlow v2 - F&O Trading Application")
     print("=" * 60)
 
     # Initialize app
     app = FNOTradingApp()
 
     # Demo mode - show features without live connection
-    print("\n📊 Application Features:")
+    print("\n[Application Features]")
     print("1. Live Trading Signal Generator (RSI, MACD, EMA, Bollinger, Supertrend)")
     print("2. Upstox API Integration (Market data, Orders, Portfolio)")
     print("3. Data-Driven Screeners (Volume, Price, Momentum, Breakouts)")
     print("4. Option Chain Analysis (PCR, High OI strikes)")
     print("5. Real-time Monitoring")
 
-    print("\n🔧 Setup Instructions:")
+    print("\n[Setup Instructions]")
     print("1. Get Upstox API credentials from: https://upstox.com/developer/")
     print("2. Copy .env.example to .env and add your credentials")
     print("3. Run: pip install -r requirements.txt")
     print("4. Authorize the app: app.setup_authentication()")
     print("5. Start monitoring: app.live_monitoring(['NSE_INDEX|Nifty 50'])")
 
-    print("\n📖 Quick Start Example:")
+    print("\n[Quick Start Example]")
     print("""
     from main import FNOTradingApp
 
@@ -326,7 +332,7 @@ def main():
     """)
 
     print("\n" + "=" * 60)
-    print("Application initialized successfully!")
+    print("TradeFlow v2 initialized successfully!")
     print("Import and use the FNOTradingApp class to get started.")
     print("=" * 60 + "\n")
 

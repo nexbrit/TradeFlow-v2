@@ -252,8 +252,14 @@ def example_5_combined_workflow():
 
 def main():
     """Run all examples"""
+    # Fix Windows console encoding for Unicode support
+    import sys
+    import io
+    if sys.platform == 'win32':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
     print("\n" + "=" * 70)
-    print("F&O Trading App - Usage Examples")
+    print("TradeFlow v2 - Usage Examples")
     print("=" * 70)
 
     examples = [

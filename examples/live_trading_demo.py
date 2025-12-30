@@ -192,8 +192,14 @@ def demo_risk_management():
 
 def main():
     """Run all demos"""
+    # Fix Windows console encoding for Unicode support
+    import sys
+    import io
+    if sys.platform == 'win32':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
     print("\n" + "=" * 80)
-    print("F&O Trading App - Live Trading Demonstrations")
+    print("TradeFlow v2 - Live Trading Demonstrations")
     print("=" * 80)
 
     demos = [
