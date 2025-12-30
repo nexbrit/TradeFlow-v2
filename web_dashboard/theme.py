@@ -571,3 +571,375 @@ def render_account_summary(
         </div>
     </div>
     """
+
+
+def get_option_type_badge(symbol: str) -> tuple[str, str]:
+    """
+    Determine option type from symbol and return badge class.
+
+    Args:
+        symbol: Trading symbol
+
+    Returns:
+        Tuple of (badge_text, badge_class)
+    """
+    symbol_upper = symbol.upper()
+    if 'CE' in symbol_upper:
+        return ('CE', 'badge-ce')
+    elif 'PE' in symbol_upper:
+        return ('PE', 'badge-pe')
+    elif 'FUT' in symbol_upper:
+        return ('FUT', 'badge-fut')
+    return ('EQ', 'badge-eq')
+
+
+def get_dte_style(days_to_expiry: int) -> str:
+    """Get style for days to expiry indicator."""
+    if days_to_expiry <= 0:
+        return f"color: {COLORS['loss']}; font-weight: 700;"
+    elif days_to_expiry <= 3:
+        return f"color: {COLORS['warning']}; font-weight: 600;"
+    return f"color: {COLORS['text_secondary']};"
+
+
+def render_enhanced_positions_table(positions: list, capital: float) -> str:
+    """
+    Render enhanced positions table with F&O-specific columns.
+
+    Args:
+        positions: List of position dictionaries
+        capital: Total capital for % calculations
+
+    Returns:
+        HTML string for positions table
+    """
+    if not positions:
+        return """
+        <div class="positions-empty">
+            <p style="color: #94a3b8; text-align: center; padding: 2rem;">
+                No active positions
+            </p>
+        </div>
+        """
+
+    rows_html = ""
+    for pos in positions:
+        symbol = pos.get('symbol', pos.get('instrument', 'Unknown'))
+        qty = abs(pos.get('quantity', 0))
+        avg_price = pos.get('average_price', 0)
+        ltp = pos.get('last_price', avg_price)
+        pnl = pos.get('unrealized_pnl', pos.get('pnl', 0))
+        stop_loss = pos.get('stop_loss', 0)
+        days_to_expiry = pos.get('days_to_expiry', 0)
+        delta = pos.get('delta', 0)
+        theta = pos.get('theta', 0)
+        lot_size = pos.get('lot_size', 1)
+
+        # Calculate derived values
+        pnl_pct = ((ltp - avg_price) / avg_price * 100) if avg_price > 0 else 0
+        position_value = qty * avg_price
+        capital_risk_pct = (position_value / capital * 100) if capital > 0 else 0
+        sl_distance_pct = ((ltp - stop_loss) / ltp * 100) if stop_loss > 0 and ltp > 0 else 0
+
+        # Get badge info
+        badge_text, badge_class = get_option_type_badge(symbol)
+
+        # Colors
+        pnl_color = get_pnl_color(pnl)
+        ltp_color = COLORS['profit'] if ltp > avg_price else COLORS['loss'] if ltp < avg_price else COLORS['text_primary']
+        dte_style = get_dte_style(days_to_expiry)
+
+        # Direction indicator
+        direction = pos.get('direction', 'LONG')
+        direction_icon = "▲" if direction == 'LONG' else "▼"
+        direction_color = COLORS['profit'] if direction == 'LONG' else COLORS['loss']
+
+        # Lots display
+        lots = qty // lot_size if lot_size > 0 else qty
+        lots_display = f"{lots} lot{'s' if lots != 1 else ''}" if lot_size > 1 else str(qty)
+
+        rows_html += f"""
+        <tr>
+            <td>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="badge {badge_class}">{badge_text}</span>
+                    <span style="color: {COLORS['text_primary']}; font-weight: 500;">{symbol}</span>
+                </div>
+            </td>
+            <td>
+                <span style="color: {direction_color};">{direction_icon} {direction}</span>
+            </td>
+            <td>{lots_display}</td>
+            <td>{format_currency(avg_price)}</td>
+            <td style="color: {ltp_color}; font-weight: 500;">{format_currency(ltp)}</td>
+            <td style="color: {pnl_color}; font-weight: 600;">
+                {format_currency(pnl)}<br>
+                <small style="opacity: 0.8;">{format_percentage(pnl_pct)}</small>
+            </td>
+            <td>{capital_risk_pct:.1f}%</td>
+            <td>
+                {format_currency(stop_loss) if stop_loss > 0 else '-'}<br>
+                <small style="opacity: 0.8;">{sl_distance_pct:.1f}% away</small>
+            </td>
+            <td style="{dte_style}">{days_to_expiry}d</td>
+            <td>
+                <small>Δ {delta:.2f}</small><br>
+                <small>Θ {theta:.2f}</small>
+            </td>
+        </tr>
+        """
+
+    return f"""
+    <div class="positions-table-container">
+        <table class="positions-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Side</th>
+                    <th>Qty</th>
+                    <th>Avg</th>
+                    <th>LTP</th>
+                    <th>P&L</th>
+                    <th>% Capital</th>
+                    <th>Stop Loss</th>
+                    <th>DTE</th>
+                    <th>Greeks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows_html}
+            </tbody>
+        </table>
+    </div>
+    """
+
+
+def render_connection_indicator(state: str, last_update: str) -> str:
+    """
+    Render connection status indicator.
+
+    Args:
+        state: Connection state (connected, disconnected, reconnecting)
+        last_update: Last update timestamp string
+
+    Returns:
+        HTML string for connection indicator
+    """
+    state_lower = state.lower()
+    if state_lower == 'connected':
+        dot_class = 'connected'
+        status_text = 'Live'
+        icon = '🟢'
+    elif state_lower == 'reconnecting':
+        dot_class = 'reconnecting'
+        status_text = 'Reconnecting...'
+        icon = '🟡'
+    else:
+        dot_class = 'disconnected'
+        status_text = 'Disconnected'
+        icon = '🔴'
+
+    return f"""
+    <div class="connection-indicator">
+        <span class="connection-dot {dot_class}"></span>
+        <span class="connection-text">{icon} {status_text}</span>
+        <span class="last-update-time">Updated: {last_update}</span>
+    </div>
+    """
+
+
+def render_refresh_control(auto_refresh: bool = True, refresh_interval: int = 30) -> str:
+    """
+    Render refresh control with auto-refresh indicator.
+
+    Args:
+        auto_refresh: Whether auto-refresh is enabled
+        refresh_interval: Refresh interval in seconds
+
+    Returns:
+        HTML string for refresh control
+    """
+    status_class = 'active' if auto_refresh else 'paused'
+    status_text = f'Auto-refresh: {refresh_interval}s' if auto_refresh else 'Auto-refresh paused'
+
+    return f"""
+    <div class="refresh-control {status_class}">
+        <span class="refresh-status">{status_text}</span>
+        <div class="refresh-progress" style="animation-duration: {refresh_interval}s;">
+            <div class="refresh-progress-bar"></div>
+        </div>
+    </div>
+    """
+
+
+def get_additional_css() -> str:
+    """
+    Get additional CSS for Phase 4.2.3 and 4.2.4 components.
+
+    Returns:
+        CSS string
+    """
+    return f"""
+    <style>
+    /* Enhanced positions table (Phase 4.2.3) */
+    .positions-table-container {{
+        overflow-x: auto;
+        border-radius: {COMPONENTS['border_radius']};
+        border: 1px solid {COLORS['border_light']};
+        margin-bottom: 1rem;
+    }}
+
+    .positions-table {{
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 900px;
+    }}
+
+    .positions-table th {{
+        background: {COLORS['bg_accent']};
+        color: {COLORS['text_secondary']};
+        font-size: {TYPOGRAPHY['tiny']};
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.75rem 0.5rem;
+        text-align: left;
+        border-bottom: 2px solid {COLORS['border_light']};
+        position: sticky;
+        top: 0;
+        white-space: nowrap;
+    }}
+
+    .positions-table td {{
+        padding: 0.75rem 0.5rem;
+        border-bottom: 1px solid {COLORS['border_dark']};
+        font-family: {TYPOGRAPHY['font_mono']};
+        font-size: {TYPOGRAPHY['small']};
+        color: {COLORS['text_primary']};
+        vertical-align: middle;
+    }}
+
+    .positions-table tbody tr {{
+        transition: background-color 0.15s ease;
+    }}
+
+    .positions-table tbody tr:hover {{
+        background: {COLORS['bg_accent']};
+    }}
+
+    /* Badge for EQ type */
+    .badge-eq {{
+        background: rgba(107, 114, 128, 0.2);
+        color: {COLORS['neutral']};
+    }}
+
+    /* Connection indicator (Phase 4.2.4) */
+    .connection-indicator {{
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: {COLORS['bg_secondary']};
+        border: 1px solid {COLORS['border_light']};
+        border-radius: {COMPONENTS['border_radius']};
+        font-size: {TYPOGRAPHY['small']};
+    }}
+
+    .connection-text {{
+        color: {COLORS['text_primary']};
+        font-weight: 500;
+    }}
+
+    .last-update-time {{
+        color: {COLORS['text_muted']};
+        font-size: {TYPOGRAPHY['tiny']};
+        margin-left: auto;
+    }}
+
+    /* Refresh control */
+    .refresh-control {{
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 1rem;
+        background: {COLORS['bg_secondary']};
+        border: 1px solid {COLORS['border_light']};
+        border-radius: {COMPONENTS['border_radius']};
+    }}
+
+    .refresh-status {{
+        font-size: {TYPOGRAPHY['small']};
+        color: {COLORS['text_secondary']};
+    }}
+
+    .refresh-control.active .refresh-status {{
+        color: {COLORS['profit']};
+    }}
+
+    .refresh-control.paused .refresh-status {{
+        color: {COLORS['warning']};
+    }}
+
+    .refresh-progress {{
+        flex: 1;
+        height: 4px;
+        background: {COLORS['bg_accent']};
+        border-radius: 2px;
+        overflow: hidden;
+    }}
+
+    .refresh-progress-bar {{
+        height: 100%;
+        background: {COLORS['accent_primary']};
+        animation: refreshProgress linear infinite;
+        width: 0%;
+    }}
+
+    .refresh-control.paused .refresh-progress-bar {{
+        animation-play-state: paused;
+    }}
+
+    @keyframes refreshProgress {{
+        0% {{ width: 0%; }}
+        100% {{ width: 100%; }}
+    }}
+
+    /* Price change blink effect */
+    .price-changed {{
+        animation: priceBlink 0.5s ease-out;
+    }}
+
+    .price-up {{
+        animation: priceUp 0.5s ease-out;
+    }}
+
+    .price-down {{
+        animation: priceDown 0.5s ease-out;
+    }}
+
+    @keyframes priceBlink {{
+        0%, 100% {{ opacity: 1; }}
+        50% {{ opacity: 0.5; }}
+    }}
+
+    @keyframes priceUp {{
+        0% {{ background-color: rgba(34, 197, 94, 0.3); }}
+        100% {{ background-color: transparent; }}
+    }}
+
+    @keyframes priceDown {{
+        0% {{ background-color: rgba(239, 68, 68, 0.3); }}
+        100% {{ background-color: transparent; }}
+    }}
+
+    /* Position row urgent (near expiry) */
+    .positions-table tr.near-expiry {{
+        background: rgba(245, 158, 11, 0.1);
+        border-left: 3px solid {COLORS['warning']};
+    }}
+
+    .positions-table tr.expiry-today {{
+        background: rgba(239, 68, 68, 0.1);
+        border-left: 3px solid {COLORS['loss']};
+    }}
+    </style>
+    """

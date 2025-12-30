@@ -22,8 +22,11 @@ from risk import DrawdownManager  # noqa: E402
 from web_dashboard.data_provider import get_data_provider  # noqa: E402
 from web_dashboard.theme import (  # noqa: E402
     get_custom_css,
+    get_additional_css,
     render_market_strip,
     render_account_summary,
+    render_enhanced_positions_table,
+    render_connection_indicator,
 )
 
 # Page configuration
@@ -36,6 +39,7 @@ st.set_page_config(
 
 # Apply professional theme CSS
 st.markdown(get_custom_css(), unsafe_allow_html=True)
+st.markdown(get_additional_css(), unsafe_allow_html=True)
 
 # Initialize data provider
 data_provider = get_data_provider()
@@ -45,6 +49,9 @@ if 'initialized' not in st.session_state:
     st.session_state.initialized = True
     st.session_state.trades_today = 0
     st.session_state.portfolio_heat = 0.0
+    st.session_state.auto_refresh = True
+    st.session_state.refresh_interval = 30  # seconds
+    st.session_state.last_refresh = datetime.now()
 
     # Initialize components
     st.session_state.journal = TradeJournal("data/trade_journal.db")
@@ -192,7 +199,16 @@ with st.sidebar:
 
 # Main content based on selected page
 if page == "🏠 Dashboard":
-    st.markdown("# Trading Dashboard")
+    # Header with connection indicator (Phase 4.2.4)
+    header_col1, header_col2 = st.columns([3, 1])
+    with header_col1:
+        st.markdown("# Trading Dashboard")
+    with header_col2:
+        connection_status = data_provider.get_connection_status()
+        st.markdown(render_connection_indicator(
+            state=connection_status.get('state', 'disconnected'),
+            last_update=datetime.now().strftime('%H:%M:%S')
+        ), unsafe_allow_html=True)
 
     # Capital initialization check
     if not data_provider.is_capital_initialized():
@@ -236,12 +252,25 @@ if page == "🏠 Dashboard":
         portfolio_heat=st.session_state.portfolio_heat
     ), unsafe_allow_html=True)
 
-    # Last updated timestamp
-    st.markdown(f"""
-        <div class="last-updated">
-            Last updated: {datetime.now().strftime('%H:%M:%S')}
-        </div>
-    """, unsafe_allow_html=True)
+    # Refresh controls (Phase 4.2.4)
+    refresh_col1, refresh_col2, refresh_col3 = st.columns([2, 1, 1])
+    with refresh_col1:
+        st.markdown(f"""
+            <div class="last-updated" style="padding-top: 0.5rem;">
+                Last updated: {datetime.now().strftime('%H:%M:%S')}
+            </div>
+        """, unsafe_allow_html=True)
+    with refresh_col2:
+        auto_refresh = st.checkbox(
+            "Auto-refresh",
+            value=st.session_state.auto_refresh,
+            key="auto_refresh_toggle"
+        )
+        st.session_state.auto_refresh = auto_refresh
+    with refresh_col3:
+        if st.button("🔄 Refresh Now", use_container_width=True):
+            st.session_state.last_refresh = datetime.now()
+            st.rerun()
 
     # Trading Rules Status
     col1, col2 = st.columns([2, 1])
@@ -296,30 +325,14 @@ if page == "🏠 Dashboard":
         st.subheader("💼 Active Positions")
 
         if positions:
-            # Convert positions to DataFrame
-            positions_data = {
-                'Instrument': [p.get('symbol', p.get('instrument', '')) for p in positions],
-                'Type': [p.get('direction', 'LONG') for p in positions],
-                'Qty': [abs(p.get('quantity', 0)) for p in positions],
-                'Entry': [p.get('average_price', 0) for p in positions],
-                'LTP': [p.get('last_price', 0) for p in positions],
-                'P&L': [p.get('unrealized_pnl', p.get('pnl', 0)) for p in positions]
-            }
-
-            positions_df = pd.DataFrame(positions_data)
-
-            # Style the dataframe
-            def color_pnl(val):
-                color = 'green' if val > 0 else 'red' if val < 0 else 'black'
-                return f'color: {color}'
-
-            st.dataframe(
-                positions_df.style.map(color_pnl, subset=['P&L']),
-                use_container_width=True,
-                hide_index=True
+            # Render enhanced positions table (Phase 4.2.3)
+            st.markdown(
+                render_enhanced_positions_table(positions, current_capital),
+                unsafe_allow_html=True
             )
 
-            total_pnl = positions_df['P&L'].sum()
+            # Calculate total P&L
+            total_pnl = sum(p.get('unrealized_pnl', p.get('pnl', 0)) for p in positions)
             if total_pnl > 0:
                 st.success(f"Total Unrealized P&L: ₹{total_pnl:,.2f}")
             else:

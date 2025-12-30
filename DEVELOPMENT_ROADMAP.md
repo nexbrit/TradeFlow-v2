@@ -484,28 +484,23 @@ data/
   - [x] Portfolio Heat (gauge: 0-6% with color gradient)
   - [x] Last updated timestamp
 
-- [ ] **4.2.3** Enhanced Positions Table
-  - [ ] Add columns:
-    - Symbol
-    - Type (CE/PE/FUT)
-    - Qty (Lots)
-    - Avg Price
-    - LTP (with color: green if profitable)
-    - P&L (Rs and %)
-    - % of Capital at Risk
-    - Stop Loss (with distance in %)
-    - Days to Expiry (highlight if < 3 days)
-    - Greeks (Delta, Theta for options)
-  - [ ] Make table sortable by any column
-  - [ ] Add quick actions: Modify SL, Square Off
+- [x] **4.2.3** Enhanced Positions Table ✅ **COMPLETED**
+  - [x] Added columns: Symbol, Type (CE/PE/FUT badges), Qty (Lots), Avg Price, LTP (colored), P&L (Rs and %), % Capital at Risk, Stop Loss (with distance %), Days to Expiry (highlighted < 3 days), Greeks (Delta, Theta)
+  - [x] Professional HTML table with hover effects, sticky headers
+  - [x] Color-coded option type badges (CE blue, PE red, FUT purple)
+  - [x] Direction indicators (▲ LONG / ▼ SHORT)
+  - [ ] Make table sortable by any column (future enhancement)
+  - [ ] Add quick actions: Modify SL, Square Off (future enhancement)
 
-- [ ] **4.2.4** Real-Time Indicators
-  - [ ] Add connection status indicator (top-right corner)
-    - Green dot: Connected to Upstox
+- [x] **4.2.4** Real-Time Indicators ✅ **COMPLETED**
+  - [x] Connection status indicator in dashboard header
+    - Green dot: Connected/Live
     - Yellow dot: Reconnecting
     - Red dot: Disconnected
-  - [ ] Show last data refresh timestamp
-  - [ ] Add manual refresh button
+  - [x] Last data refresh timestamp
+  - [x] Manual refresh button
+  - [x] Auto-refresh toggle control
+  - [x] Price change blink animations (CSS)
 
 ### 4.3 Page-Specific Improvements
 
