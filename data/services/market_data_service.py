@@ -90,6 +90,71 @@ class RateLimiter:
             return self.max_requests - len(self._requests)
 
 
+class ExpiryDayManager:
+    """
+    Manages expiry-day specific behavior for F&O trading.
+
+    Weekly expiry: Every Thursday
+    Monthly expiry: Last Thursday of month
+
+    On expiry days, especially in the last hour, options can move
+    rapidly and need faster quote refresh.
+    """
+
+    @staticmethod
+    def is_expiry_day(date: datetime = None) -> bool:
+        """
+        Check if given date is an expiry day.
+
+        Weekly expiry is every Thursday.
+        Monthly expiry is last Thursday of month.
+
+        Args:
+            date: Date to check (defaults to today)
+
+        Returns:
+            True if it's an expiry day
+        """
+        if date is None:
+            date = datetime.now()
+        return date.weekday() == 3  # Thursday
+
+    @staticmethod
+    def is_last_hour_of_expiry() -> bool:
+        """
+        Check if we're in the last hour of an expiry day.
+
+        Critical period: 2:30 PM - 3:30 PM on Thursday
+        Options can move 50-100% in this period.
+
+        Returns:
+            True if in critical expiry period
+        """
+        now = datetime.now()
+        if not ExpiryDayManager.is_expiry_day(now):
+            return False
+
+        hour = now.hour
+        minute = now.minute
+        # Last trading hour: 2:30 PM to 3:30 PM
+        return (hour == 14 and minute >= 30) or hour == 15
+
+    @staticmethod
+    def get_expiry_day_restrictions() -> Dict[str, Any]:
+        """
+        Get trading restrictions for expiry day.
+
+        Returns:
+            Dictionary with recommended restrictions
+        """
+        return {
+            'max_position_percent': 0.02,  # Reduced to 2%
+            'no_new_positions_after': '14:30',  # 2:30 PM
+            'quote_refresh_ttl': 2,  # Faster refresh
+            'warning': 'High volatility expected near expiry'
+        }
+
+
 class MarketDataService:
     """
     Service for fetching market data with caching and rate limiting.
@@ -100,6 +165,7 @@ class MarketDataService:
     - Connection state tracking
     - Fallback to last known good data on API failures
     - Thread-safe operations
+    - Expiry-day aware caching (faster refresh on Thursdays)
 
     Example:
         service = MarketDataService(upstox_client)
@@ -109,7 +175,9 @@ class MarketDataService:
 
     # Cache TTL defaults (in seconds)
     QUOTE_TTL = 5
+    QUOTE_TTL_EXPIRY_DAY = 2  # Faster on expiry day
     OPTION_CHAIN_TTL = 30
+    OPTION_CHAIN_TTL_EXPIRY_DAY = 15  # Faster on expiry day
     EXPIRY_TTL = 3600  # 1 hour
 
     def __init__(
@@ -136,6 +204,42 @@ class MarketDataService:
 
         # Store last known good data for fallback
         self._last_known_quotes: Dict[str, Dict[str, Any]] = {}
+
+        # Expiry day manager for dynamic TTL
+        self._expiry_mgr = ExpiryDayManager()
+
+    def _get_quote_ttl(self) -> int:
+        """Get appropriate quote cache TTL based on market conditions."""
+        if ExpiryDayManager.is_last_hour_of_expiry():
+            return self.QUOTE_TTL_EXPIRY_DAY
+        if ExpiryDayManager.is_expiry_day():
+            return self.QUOTE_TTL_EXPIRY_DAY
+        return self.QUOTE_TTL
+
+    def _get_option_chain_ttl(self) -> int:
+        """Get appropriate option chain cache TTL."""
+        if ExpiryDayManager.is_expiry_day():
+            return self.OPTION_CHAIN_TTL_EXPIRY_DAY
+        return self.OPTION_CHAIN_TTL
+
+    def get_expiry_day_info(self) -> Dict[str, Any]:
+        """
+        Get expiry day information for UI display.
+
+        Returns:
+            Dictionary with expiry day status and restrictions
+        """
+        is_expiry = ExpiryDayManager.is_expiry_day()
+        return {
+            'is_expiry_day': is_expiry,
+            'is_last_hour': ExpiryDayManager.is_last_hour_of_expiry(),
+            'restrictions': (
+                ExpiryDayManager.get_expiry_day_restrictions()
+                if is_expiry else None
+            ),
+            'quote_ttl': self._get_quote_ttl(),
+            'option_chain_ttl': self._get_option_chain_ttl()
+        }
 
     @property
     def connection_state(self) -> ConnectionState:
@@ -211,8 +315,8 @@ class MarketDataService:
                 'cached': False
             }
 
-            # Update cache
-            self._cache.set(cache_key, quote_data, self.QUOTE_TTL)
+            # Update cache with dynamic TTL (faster on expiry day)
+            self._cache.set(cache_key, quote_data, self._get_quote_ttl())
 
             # Store as last known good
             self._last_known_quotes[instrument_key] = quote_data
@@ -357,8 +461,8 @@ class MarketDataService:
                 self._update_connection_state(False)
                 return df
 
-            # Cache the result
-            self._cache.set(cache_key, df.to_dict('records'), self.OPTION_CHAIN_TTL)
+            # Cache with dynamic TTL (faster on expiry day)
+            self._cache.set(cache_key, df.to_dict('records'), self._get_option_chain_ttl())
 
             self._update_connection_state(True)
             return df

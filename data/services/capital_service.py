@@ -503,25 +503,70 @@ class CapitalService:
             'max_position_percent': max_position_percent
         }
 
+    # F&O-specific position size limits (based on oz-fno-wizard recommendations)
+    # Options are higher risk instruments and need stricter limits
+    POSITION_LIMITS = {
+        'INDEX_OPTION': 0.03,   # 3% for index options (Nifty, BankNifty)
+        'STOCK_OPTION': 0.02,   # 2% for stock options (less liquid)
+        'INDEX_FUTURE': 0.08,   # 8% for index futures (with SL)
+        'STOCK_FUTURE': 0.05,   # 5% for stock futures
+        'EQUITY': 0.10,         # 10% for equity (delivery)
+        'DEFAULT': 0.03         # 3% default (conservative)
+    }
+
+    def get_max_position_percent(
+        self,
+        instrument_type: str = 'DEFAULT'
+    ) -> float:
+        """
+        Get maximum position size percentage for an instrument type.
+
+        F&O instruments have stricter limits due to higher risk:
+        - Options can go to zero rapidly, especially near expiry
+        - Futures have leverage risk
+        - Weekly options near expiry are especially risky
+
+        Args:
+            instrument_type: Type of instrument (INDEX_OPTION, STOCK_OPTION,
+                           INDEX_FUTURE, STOCK_FUTURE, EQUITY)
+
+        Returns:
+            Maximum position size as decimal (e.g., 0.03 = 3%)
+        """
+        return self.POSITION_LIMITS.get(
+            instrument_type.upper(),
+            self.POSITION_LIMITS['DEFAULT']
+        )
+
     def get_position_sizing_capital(
         self,
-        risk_percent: float = 2.0
+        risk_percent: float = 2.0,
+        instrument_type: str = 'DEFAULT'
     ) -> Dict[str, float]:
         """
         Get capital amounts for position sizing calculations.
 
+        Position limits are instrument-aware:
+        - Options: 2-3% max (can lose 100% quickly)
+        - Futures: 5-8% max (with mandatory stop-loss)
+        - Equity: 10% max (lower risk)
+
         Args:
             risk_percent: Risk per trade as percentage
+            instrument_type: Type of instrument for position limits
 
         Returns:
             Dictionary with position sizing parameters
         """
         current = self.get_current_capital()
+        max_position_pct = self.get_max_position_percent(instrument_type)
 
         return {
             'total_capital': current,
             'risk_per_trade': current * (risk_percent / 100),
-            'max_position_value': current * 0.10,  # 10% max position
+            'max_position_value': current * max_position_pct,
+            'max_position_percent': max_position_pct * 100,
             'max_portfolio_heat': current * 0.06,  # 6% max heat
-            'suggested_position_value': current * 0.05  # 5% suggested
+            'suggested_position_value': current * (max_position_pct * 0.5),
+            'instrument_type': instrument_type
         }
