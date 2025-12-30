@@ -15,11 +15,16 @@ from pathlib import Path
 parent_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(parent_dir))
 
-from analytics import TradeJournal
-from news import EconomicCalendar, SentimentAnalyzer
-from rules import TradingRulesEnforcer
-from risk import DrawdownManager
-from web_dashboard.data_provider import get_data_provider
+from analytics import TradeJournal  # noqa: E402
+from news import EconomicCalendar, SentimentAnalyzer  # noqa: E402
+from rules import TradingRulesEnforcer  # noqa: E402
+from risk import DrawdownManager  # noqa: E402
+from web_dashboard.data_provider import get_data_provider  # noqa: E402
+from web_dashboard.theme import (  # noqa: E402
+    get_custom_css,
+    render_market_strip,
+    render_account_summary,
+)
 
 # Page configuration
 st.set_page_config(
@@ -29,66 +34,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better UI
-st.markdown("""
-    <style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1f77b4;
-        margin-bottom: 1rem;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 10px;
-        color: white;
-        margin-bottom: 1rem;
-    }
-    .success-card {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        padding: 1rem;
-        border-radius: 8px;
-        color: white;
-    }
-    .danger-card {
-        background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-        padding: 1rem;
-        border-radius: 8px;
-        color: white;
-    }
-    .warning-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        padding: 1rem;
-        border-radius: 8px;
-        color: white;
-    }
-    .connection-dot {
-        display: inline-block;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        margin-right: 5px;
-    }
-    .connected { background-color: #22c55e; }
-    .disconnected { background-color: #ef4444; }
-    .reconnecting { background-color: #f59e0b; }
-    .token-warning {
-        background-color: #f59e0b;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 5px;
-        margin-bottom: 1rem;
-    }
-    .token-expired {
-        background-color: #ef4444;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 5px;
-        margin-bottom: 1rem;
-    }
-    </style>
-""", unsafe_allow_html=True)
+# Apply professional theme CSS
+st.markdown(get_custom_css(), unsafe_allow_html=True)
 
 # Initialize data provider
 data_provider = get_data_provider()
@@ -245,58 +192,56 @@ with st.sidebar:
 
 # Main content based on selected page
 if page == "🏠 Dashboard":
-    st.markdown('<p class="main-header">📊 Trading Dashboard</p>', unsafe_allow_html=True)
+    st.markdown("# Trading Dashboard")
 
     # Capital initialization check
     if not data_provider.is_capital_initialized():
-        st.warning("⚠️ **Capital not initialized!** Go to Settings to set your trading capital.")
+        st.warning("**Capital not initialized!** Go to Settings to set your trading capital.")
 
-    # Top metrics row
-    col1, col2, col3, col4 = st.columns(4)
+    # Market Overview Strip (Phase 4.2.1)
+    index_quotes = data_provider.get_index_quotes()
+    nifty_quote = index_quotes.get('Nifty 50', {})
+    banknifty_quote = index_quotes.get('Bank Nifty', {})
+    vix_quote = index_quotes.get('India VIX', {})
 
-    with col1:
-        st.markdown("""
-            <div class="metric-card">
-                <h4>💰 Account Balance</h4>
-                <h2>₹{:,.2f}</h2>
-                <p>Initial: ₹{:,.0f}</p>
-            </div>
-        """.format(current_capital, initial_capital), unsafe_allow_html=True)
+    # Determine market status
+    market_time = datetime.now().time()
+    if market_time.hour < 9 or (market_time.hour == 9 and market_time.minute < 15):
+        market_status = "Pre-Open"
+    elif market_time.hour >= 15 and market_time.minute >= 30:
+        market_status = "Closed"
+    else:
+        market_status = "Open"
 
-    with col2:
-        pnl = daily_pnl
-        card_class = "success-card" if pnl >= 0 else "danger-card"
-        return_pct = (pnl / current_capital * 100) if current_capital > 0 else 0
-        st.markdown("""
-            <div class="{}">
-                <h4>📊 Today's P&L</h4>
-                <h2>₹{:+,.2f}</h2>
-                <p>Return: {:.2f}%</p>
-            </div>
-        """.format(card_class, pnl, return_pct), unsafe_allow_html=True)
+    st.markdown(render_market_strip(
+        nifty={'value': nifty_quote.get('last_price', 0), 'change': nifty_quote.get('change_percent', 0)},
+        banknifty={'value': banknifty_quote.get('last_price', 0), 'change': banknifty_quote.get('change_percent', 0)},
+        vix={'value': vix_quote.get('last_price', 0), 'change': vix_quote.get('change_percent', 0)},
+        market_status=market_status
+    ), unsafe_allow_html=True)
 
-    with col3:
-        heat = st.session_state.portfolio_heat
-        card_class = "success-card" if heat < 3 else "warning-card" if heat < 5 else "danger-card"
-        st.markdown("""
-            <div class="{}">
-                <h4>🔥 Portfolio Heat</h4>
-                <h2>{:.1f}%</h2>
-                <p>Max: 6.0%</p>
-            </div>
-        """.format(card_class, heat), unsafe_allow_html=True)
+    # Account Summary Card (Phase 4.2.2)
+    daily_pnl_pct = (daily_pnl / current_capital * 100) if current_capital > 0 else 0
+    margin_info = data_provider.get_margin_info()
+    margin_used = margin_info.get('used', 0)
+    margin_available = margin_info.get('available', current_capital)
 
-    with col4:
-        trades = trades_today
-        st.markdown("""
-            <div class="metric-card">
-                <h4>📈 Trades Today</h4>
-                <h2>{}/5</h2>
-                <p>Remaining: {}</p>
-            </div>
-        """.format(trades, 5-trades), unsafe_allow_html=True)
+    st.markdown(render_account_summary(
+        capital=current_capital,
+        daily_pnl=daily_pnl,
+        daily_pnl_pct=daily_pnl_pct,
+        positions_count=len(positions),
+        margin_used=margin_used,
+        margin_available=margin_available,
+        portfolio_heat=st.session_state.portfolio_heat
+    ), unsafe_allow_html=True)
 
-    st.markdown("---")
+    # Last updated timestamp
+    st.markdown(f"""
+        <div class="last-updated">
+            Last updated: {datetime.now().strftime('%H:%M:%S')}
+        </div>
+    """, unsafe_allow_html=True)
 
     # Trading Rules Status
     col1, col2 = st.columns([2, 1])

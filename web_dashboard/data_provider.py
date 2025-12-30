@@ -358,6 +358,48 @@ class DashboardDataProvider:
             logger.error(f"Error fetching capital history: {e}")
             return []
 
+    def get_margin_info(self) -> Dict[str, float]:
+        """
+        Get margin utilization info.
+
+        Returns:
+            Dict with 'used' and 'available' margin values
+        """
+        # Get capital summary
+        capital_summary = self.get_capital_summary()
+        current_capital = capital_summary.get('current_capital', 100000)
+
+        # Get positions to calculate margin used
+        positions = self.get_positions()
+
+        # Estimate margin used based on position values
+        # For F&O, margin is typically 15-20% of notional value
+        margin_used = 0
+        for pos in positions:
+            qty = abs(pos.get('quantity', 0))
+            avg_price = pos.get('average_price', 0)
+            notional = qty * avg_price
+
+            # Approximate margin requirement
+            # Options: ~15% of notional
+            # Futures: ~12% of notional
+            instrument = pos.get('instrument_token', '').upper()
+            if 'OPT' in instrument or pos.get('option_type'):
+                margin_pct = 0.15
+            else:
+                margin_pct = 0.12
+
+            margin_used += notional * margin_pct
+
+        margin_available = max(0, current_capital - margin_used)
+
+        return {
+            'used': round(margin_used, 2),
+            'available': round(margin_available, 2),
+            'total': current_capital,
+            'utilization_pct': round(margin_used / current_capital * 100, 2) if current_capital > 0 else 0
+        }
+
     # Authentication Methods
 
     def get_token_status(self) -> Dict[str, Any]:

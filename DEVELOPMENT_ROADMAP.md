@@ -451,48 +451,38 @@ data/
 
 **Tasks:**
 
-- [ ] **4.1.1** Define Color Palette
-  ```css
-  --bg-primary: #0f172a (Dark Navy)
-  --bg-secondary: #1e293b (Slate)
-  --bg-accent: #334155 (Lighter Slate)
-  --text-primary: #f1f5f9 (Light)
-  --text-secondary: #94a3b8 (Muted)
-  --profit: #22c55e (Green)
-  --loss: #ef4444 (Red)
-  --warning: #f59e0b (Amber)
-  --info: #3b82f6 (Blue)
-  ```
+- [x] **4.1.1** Define Color Palette ✅ **COMPLETED**
+  - [x] Created `web_dashboard/theme.py` with comprehensive COLORS dictionary
+  - [x] Dark Navy, Slate, Profit/Loss/Warning colors defined
 
-- [ ] **4.1.2** Apply Theme to All Pages
-  - [ ] Create `web_dashboard/theme.py` with Streamlit theme config
-  - [ ] Update all `st.markdown()` with custom CSS
-  - [ ] Replace generic colors with theme colors
+- [x] **4.1.2** Apply Theme to All Pages ✅ **COMPLETED**
+  - [x] Created `web_dashboard/theme.py` with `get_custom_css()` function
+  - [x] Updated `app.py` to use theme CSS
+  - [x] Replaced hardcoded colors with theme variables
 
-- [ ] **4.1.3** Consistent Typography
-  - [ ] Heading sizes: H1 (2.5rem), H2 (2rem), H3 (1.5rem)
-  - [ ] Body text: 1rem (16px)
-  - [ ] Small text (timestamps, labels): 0.875rem (14px)
-  - [ ] Monospace for numbers: Use tabular figures
+- [x] **4.1.3** Consistent Typography ✅ **COMPLETED**
+  - [x] H1-H4 heading sizes defined in theme
+  - [x] Body, small, tiny text sizes with proper hierarchy
+  - [x] Monospace font for numbers (JetBrains Mono / Fira Code)
 
 ### 4.2 Enhanced Information Density
 
 **Tasks:**
 
-- [ ] **4.2.1** Market Overview Strip (Top of Dashboard)
-  - [ ] Show Nifty Spot, Bank Nifty Spot, India VIX side-by-side
-  - [ ] Display day's change with % and absolute value
-  - [ ] Color code: Green (up), Red (down)
-  - [ ] Add market status badge (Pre-open/Open/Closed)
-  - [ ] Show time to current week expiry (e.g., "2d 4h to expiry")
+- [x] **4.2.1** Market Overview Strip (Top of Dashboard) ✅ **COMPLETED**
+  - [x] Show Nifty Spot, Bank Nifty Spot, India VIX side-by-side
+  - [x] Display day's change with %
+  - [x] Color code: Green (up), Red (down)
+  - [x] Add market status badge (Pre-open/Open/Closed)
+  - [ ] Show time to current week expiry (future enhancement)
 
-- [ ] **4.2.2** Account Summary Card (Fixed Header)
-  - [ ] Total Capital (large, prominent)
-  - [ ] Day's P&L (Realized + Unrealized) with %
-  - [ ] Open Positions Count
-  - [ ] Margin Utilized / Available (progress bar)
-  - [ ] Portfolio Heat (gauge: 0-6% with color gradient)
-  - [ ] Last updated timestamp
+- [x] **4.2.2** Account Summary Card (Fixed Header) ✅ **COMPLETED**
+  - [x] Total Capital (large, prominent)
+  - [x] Day's P&L (Realized + Unrealized) with %
+  - [x] Open Positions Count
+  - [x] Margin Utilized / Available
+  - [x] Portfolio Heat (gauge: 0-6% with color gradient)
+  - [x] Last updated timestamp
 
 - [ ] **4.2.3** Enhanced Positions Table
   - [ ] Add columns:
