@@ -206,6 +206,42 @@ class OptionsChainDownloader:
                 'path': None
             }
 
+    # Lot sizes for common F&O instruments (updated periodically by NSE)
+    LOT_SIZES = {
+        'NIFTY': 25,
+        'BANKNIFTY': 15,
+        'FINNIFTY': 25,
+        'MIDCPNIFTY': 50,
+        'RELIANCE': 250,
+        'TCS': 150,
+        'HDFCBANK': 550,
+        'INFY': 300,
+        'ICICIBANK': 700,
+        'SBIN': 1500,
+        'BHARTIARTL': 950,
+        'ITC': 1600,
+        'KOTAKBANK': 400,
+        'LT': 150,
+        'DEFAULT': 100
+    }
+
+    def _get_lot_size(self, underlying: str) -> int:
+        """
+        Get lot size for an underlying instrument.
+
+        Args:
+            underlying: Underlying symbol
+
+        Returns:
+            Lot size
+        """
+        # Extract symbol from instrument key
+        symbol = underlying.upper()
+        for key in self.LOT_SIZES:
+            if key in symbol:
+                return self.LOT_SIZES[key]
+        return self.LOT_SIZES['DEFAULT']
+
     def _normalize_option_chain(
         self,
         df: pd.DataFrame,
@@ -214,7 +250,7 @@ class OptionsChainDownloader:
         snapshot_date: date
     ) -> pd.DataFrame:
         """
-        Normalize option chain data to standard format.
+        Normalize and enrich option chain data.
 
         Standard schema:
         - timestamp: Snapshot datetime
@@ -230,6 +266,14 @@ class OptionsChainDownloader:
         - volume: Trading volume
         - iv: Implied volatility
         - delta, gamma, theta, vega: Greeks
+
+        Computed fields:
+        - days_to_expiry: Days remaining to expiry
+        - lot_size: Contract lot size
+        - bid_ask_spread_pct: Bid-ask spread as percentage
+        - intrinsic_value: Option intrinsic value
+        - time_value: Option time value
+        - moneyness: ITM/ATM/OTM classification
         """
         # Add metadata columns
         df['timestamp'] = datetime.combine(snapshot_date, datetime.min.time())
@@ -260,19 +304,80 @@ class OptionsChainDownloader:
             if col not in df.columns:
                 df[col] = default
 
+        # Add computed fields (HIGH priority per oz-fno-wizard review)
+
+        # Days to expiry
+        df['days_to_expiry'] = max((expiry_date - snapshot_date).days, 0)
+
+        # Lot size
+        df['lot_size'] = self._get_lot_size(underlying)
+
+        # Bid-ask spread percentage
+        df['bid_ask_spread_pct'] = np.where(
+            df['ltp'] > 0,
+            ((df['ask_price'] - df['bid_price']) / df['ltp'] * 100).round(2),
+            0.0
+        )
+
+        # Intrinsic and time value
+        spot = df['underlying_spot'].iloc[0] if len(df) > 0 else 0
+        df['intrinsic_value'] = df.apply(
+            lambda r: max(spot - r['strike_price'], 0) if r['option_type'] == 'CE'
+            else max(r['strike_price'] - spot, 0),
+            axis=1
+        ).round(2)
+        df['time_value'] = (df['ltp'] - df['intrinsic_value']).clip(lower=0).round(2)
+
+        # Moneyness classification
+        df['moneyness'] = df.apply(
+            lambda r: self._classify_moneyness(r, spot),
+            axis=1
+        )
+
         # Select and order columns
         columns = [
             'timestamp', 'underlying_symbol', 'underlying_spot', 'expiry_date',
             'strike_price', 'option_type', 'ltp', 'bid_price', 'bid_qty',
             'ask_price', 'ask_qty', 'oi', 'oi_change', 'volume',
-            'iv', 'delta', 'gamma', 'theta', 'vega'
+            'iv', 'delta', 'gamma', 'theta', 'vega',
+            'days_to_expiry', 'lot_size', 'bid_ask_spread_pct',
+            'intrinsic_value', 'time_value', 'moneyness'
         ]
 
         return df[[c for c in columns if c in df.columns]]
 
+    def _classify_moneyness(self, row, spot: float) -> str:
+        """
+        Classify option as ITM/ATM/OTM.
+
+        Args:
+            row: DataFrame row with strike_price and option_type
+            spot: Current spot price
+
+        Returns:
+            Moneyness classification
+        """
+        if spot == 0:
+            return 'UNKNOWN'
+
+        strike = row['strike_price']
+        option_type = row['option_type']
+
+        # ATM if within 0.5% of spot
+        if abs(strike - spot) / spot < 0.005:
+            return 'ATM'
+
+        if option_type == 'CE':
+            return 'ITM' if strike < spot else 'OTM'
+        else:  # PE
+            return 'ITM' if strike > spot else 'OTM'
+
     def _get_atm_iv(self, df: pd.DataFrame) -> Optional[float]:
         """
-        Get ATM implied volatility from option chain.
+        Get ATM implied volatility using interpolation.
+
+        Uses average of CE and PE IVs at the two strikes bracketing spot price,
+        which provides a more accurate ATM IV than using a single strike.
 
         Args:
             df: Option chain DataFrame
@@ -287,11 +392,44 @@ class OptionsChainDownloader:
         if spot == 0:
             return None
 
-        # Find ATM strike
-        df['strike_distance'] = abs(df['strike_price'] - spot)
-        atm_row = df.loc[df['strike_distance'].idxmin()]
+        if 'iv' not in df.columns:
+            return None
 
-        return atm_row.get('iv', None)
+        # Get unique strikes sorted
+        strikes = sorted(df['strike_price'].unique())
+        if not strikes:
+            return None
+
+        # Find strikes bracketing spot
+        lower_strikes = [s for s in strikes if s <= spot]
+        upper_strikes = [s for s in strikes if s >= spot]
+
+        lower_strike = lower_strikes[-1] if lower_strikes else None
+        upper_strike = upper_strikes[0] if upper_strikes else None
+
+        # If we can't find bracketing strikes, fall back to nearest
+        if lower_strike is None or upper_strike is None:
+            df_temp = df.copy()
+            df_temp['strike_distance'] = abs(df_temp['strike_price'] - spot)
+            nearest_row = df_temp.loc[df_temp['strike_distance'].idxmin()]
+            return nearest_row.get('iv', None)
+
+        # Get IV of both CE and PE at ATM strikes
+        atm_strikes = [lower_strike, upper_strike]
+        if lower_strike == upper_strike:
+            atm_strikes = [lower_strike]
+
+        atm_options = df[df['strike_price'].isin(atm_strikes)]
+        if len(atm_options) == 0:
+            return None
+
+        # Filter out zero or invalid IVs
+        valid_ivs = atm_options[atm_options['iv'] > 0]['iv']
+        if len(valid_ivs) == 0:
+            return None
+
+        # Return average IV (combines CE and PE at ATM strikes)
+        return round(valid_ivs.mean(), 2)
 
     def _add_iv_metrics(
         self,

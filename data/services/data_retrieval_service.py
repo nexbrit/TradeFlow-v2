@@ -12,11 +12,13 @@ Features:
 - Data quality reporting
 """
 
+from collections import OrderedDict
 from datetime import date, timedelta
 from typing import Any, Optional, Dict, List, Union
 from pathlib import Path
 import logging
 
+import numpy as np
 import pandas as pd
 
 from data.downloaders.historical_downloader import (
@@ -87,8 +89,8 @@ class DataRetrievalService:
             data_path / "options" if data_path else None
         )
 
-        # In-memory cache for frequently accessed data
-        self._cache: Dict[str, pd.DataFrame] = {}
+        # LRU cache for frequently accessed data (OrderedDict for proper LRU)
+        self._cache: OrderedDict[str, pd.DataFrame] = OrderedDict()
         self._cache_max_size = 10  # Max cached DataFrames
 
     def get_historical_data(
@@ -118,9 +120,10 @@ class DataRetrievalService:
 
         cache_key = f"{instrument}_{interval.value}_{start_date}_{end_date}"
 
-        # Check cache
+        # Check cache (move to end for LRU behavior)
         if cache_key in self._cache:
             logger.debug(f"Returning cached data for {cache_key}")
+            self._cache.move_to_end(cache_key)
             return self._cache[cache_key].copy()
 
         # Try to load from file
@@ -353,16 +356,25 @@ class DataRetrievalService:
         df: pd.DataFrame
     ) -> None:
         """
-        Add DataFrame to cache with LRU eviction.
+        Add DataFrame to cache with proper LRU eviction.
+
+        Uses OrderedDict for efficient LRU behavior:
+        - Most recently used items are at the end
+        - Eviction removes items from the start (least recently used)
 
         Args:
             key: Cache key
             df: DataFrame to cache
         """
-        # Evict oldest if cache is full
-        if len(self._cache) >= self._cache_max_size:
-            oldest_key = next(iter(self._cache))
-            del self._cache[oldest_key]
+        # If key exists, update and move to end
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            self._cache[key] = df.copy()
+            return
+
+        # Evict oldest (first) if cache is full
+        while len(self._cache) >= self._cache_max_size:
+            self._cache.popitem(last=False)  # Remove from start (oldest)
 
         self._cache[key] = df.copy()
 
@@ -395,7 +407,8 @@ class DataRetrievalService:
         self,
         df: pd.DataFrame,
         window: int = 20,
-        annualize: bool = True
+        annualize: bool = True,
+        periods_per_day: int = 1
     ) -> pd.Series:
         """
         Calculate rolling volatility from OHLCV data.
@@ -403,7 +416,12 @@ class DataRetrievalService:
         Args:
             df: OHLCV DataFrame
             window: Rolling window size
-            annualize: Whether to annualize (assumes 252 trading days)
+            annualize: Whether to annualize
+            periods_per_day: Number of periods per trading day
+                - 1 for daily data
+                - 25 for 15-minute data (375 minutes / 15)
+                - 75 for 5-minute data (375 minutes / 5)
+                - 375 for 1-minute data
 
         Returns:
             Series with volatility
@@ -412,9 +430,77 @@ class DataRetrievalService:
         vol = returns.rolling(window).std()
 
         if annualize:
-            vol = vol * (252 ** 0.5)
+            # Annualization factor: sqrt(periods_per_year)
+            # periods_per_year = periods_per_day * 252 trading days
+            periods_per_year = periods_per_day * 252
+            vol = vol * np.sqrt(periods_per_year)
 
         return vol
+
+    def get_atr(
+        self,
+        df: pd.DataFrame,
+        period: int = 14
+    ) -> pd.Series:
+        """
+        Calculate Average True Range - essential for F&O stop-loss placement.
+
+        Args:
+            df: OHLCV DataFrame with high, low, close columns
+            period: ATR period (typically 14)
+
+        Returns:
+            Series with ATR values
+        """
+        if not all(col in df.columns for col in ['high', 'low', 'close']):
+            raise ValueError("DataFrame must have 'high', 'low', 'close' columns")
+
+        high = df['high']
+        low = df['low']
+        close = df['close'].shift(1)
+
+        # True Range components
+        tr1 = high - low
+        tr2 = abs(high - close)
+        tr3 = abs(low - close)
+
+        # True Range is the max of the three
+        true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+
+        # ATR is the rolling mean of True Range
+        return true_range.rolling(period).mean()
+
+    def get_parkinson_volatility(
+        self,
+        df: pd.DataFrame,
+        period: int = 20,
+        annualize: bool = True
+    ) -> pd.Series:
+        """
+        Calculate Parkinson volatility estimator.
+
+        Uses high-low range which is more accurate than close-to-close
+        for estimating volatility, especially for F&O pricing.
+
+        Args:
+            df: OHLCV DataFrame with high, low columns
+            period: Rolling period
+            annualize: Whether to annualize (assumes 252 trading days)
+
+        Returns:
+            Series with Parkinson volatility
+        """
+        if 'high' not in df.columns or 'low' not in df.columns:
+            raise ValueError("DataFrame must have 'high' and 'low' columns")
+
+        # Parkinson volatility formula
+        log_hl = np.log(df['high'] / df['low'])
+        parkinson = np.sqrt((log_hl ** 2).rolling(period).mean() / (4 * np.log(2)))
+
+        if annualize:
+            parkinson = parkinson * np.sqrt(252)
+
+        return parkinson
 
     def resample_data(
         self,

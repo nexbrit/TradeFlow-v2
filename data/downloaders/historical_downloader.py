@@ -388,7 +388,7 @@ class HistoricalDownloader:
         Checks:
         - OHLC relationships (High >= Close >= Low)
         - Duplicate timestamps
-        - Missing data gaps
+        - Missing data gaps (excluding expected gaps)
 
         Args:
             df: DataFrame to validate
@@ -421,20 +421,14 @@ class HistoricalDownloader:
                 'count': len(duplicates)
             })
 
-        # Check for gaps (for daily data)
-        df_sorted = df.sort_values('timestamp')
-        time_diffs = df_sorted['timestamp'].diff()
-
-        # This is a simplified gap check - would need more logic
-        # for handling weekends/holidays properly
-        if len(df) > 1:
-            median_diff = time_diffs.median()
-            large_gaps = time_diffs[time_diffs > median_diff * 3]
-            if len(large_gaps) > 0:
-                issues.append({
-                    'type': 'gaps',
-                    'count': len(large_gaps)
-                })
+        # Check for unexpected gaps (excluding overnight, weekend, holidays)
+        unexpected_gaps = self._detect_unexpected_gaps(df)
+        if unexpected_gaps:
+            issues.append({
+                'type': 'gaps',
+                'count': len(unexpected_gaps),
+                'details': unexpected_gaps[:5]  # First 5 gaps
+            })
 
         return {
             'valid': len(issues) == 0,
@@ -445,6 +439,113 @@ class HistoricalDownloader:
                 'end': df['timestamp'].max().isoformat() if len(df) > 0 else None
             }
         }
+
+    def _detect_unexpected_gaps(self, df: pd.DataFrame) -> List[Dict[str, Any]]:
+        """
+        Detect unexpected gaps in data, excluding overnight/weekend/holiday gaps.
+
+        NSE Trading Hours: 9:15 AM - 3:30 PM IST
+
+        Args:
+            df: DataFrame with timestamp column
+
+        Returns:
+            List of unexpected gap details
+        """
+        if len(df) < 2:
+            return []
+
+        # Import calendar lazily to avoid circular imports
+        try:
+            from news.economic_calendar import EconomicCalendar
+            calendar = EconomicCalendar()
+        except ImportError:
+            calendar = None
+
+        df_sorted = df.sort_values('timestamp').reset_index(drop=True)
+        unexpected_gaps = []
+
+        for i in range(1, len(df_sorted)):
+            prev_ts = df_sorted.loc[i - 1, 'timestamp']
+            curr_ts = df_sorted.loc[i, 'timestamp']
+            gap = curr_ts - prev_ts
+
+            # Skip if gap is expected
+            if self._is_expected_gap(prev_ts, curr_ts, gap, calendar):
+                continue
+
+            # Gap is unexpected
+            unexpected_gaps.append({
+                'from': prev_ts.isoformat(),
+                'to': curr_ts.isoformat(),
+                'gap_minutes': gap.total_seconds() / 60
+            })
+
+        return unexpected_gaps
+
+    def _is_expected_gap(
+        self,
+        prev_ts: pd.Timestamp,
+        curr_ts: pd.Timestamp,
+        gap: pd.Timedelta,
+        calendar
+    ) -> bool:
+        """
+        Check if a gap is expected (overnight, weekend, holiday).
+
+        Args:
+            prev_ts: Previous timestamp
+            curr_ts: Current timestamp
+            gap: Time gap
+            calendar: EconomicCalendar instance or None
+
+        Returns:
+            True if gap is expected
+        """
+        # Overnight gap: 3:30 PM to 9:15 AM next trading day
+        # This is approximately 17.75 hours or more
+        if gap.total_seconds() >= 17 * 3600:  # 17 hours minimum overnight gap
+            prev_hour = prev_ts.hour
+            curr_hour = curr_ts.hour
+
+            # Previous timestamp should be around market close (3:30 PM = 15:30)
+            # Current timestamp should be around market open (9:15 AM)
+            if prev_hour >= 15 and curr_hour <= 10:
+                # Check if days between are weekends/holidays
+                days_between = (curr_ts.date() - prev_ts.date()).days
+                if days_between >= 1:
+                    all_expected = True
+
+                    # Check each day in the gap
+                    check_date = prev_ts.date() + timedelta(days=1)
+                    while check_date < curr_ts.date():
+                        # Weekend check
+                        if check_date.weekday() >= 5:
+                            check_date += timedelta(days=1)
+                            continue
+
+                        # Holiday check
+                        if calendar:
+                            if calendar.is_market_holiday(check_date.strftime('%Y-%m-%d')):
+                                check_date += timedelta(days=1)
+                                continue
+
+                        # This day should have had data
+                        all_expected = False
+                        break
+
+                        check_date += timedelta(days=1)
+
+                    if all_expected:
+                        return True
+
+        # Same day gap within trading hours - check if within tolerance
+        # For 15-min data, gaps < 20 min are OK (slight delays)
+        if prev_ts.date() == curr_ts.date():
+            if gap.total_seconds() < 20 * 60:  # 20 minutes tolerance
+                return True
+
+        return False
 
     def _generate_demo_data(
         self,
@@ -468,17 +569,27 @@ class HistoricalDownloader:
         # Determine number of periods
         days = (end_date - start_date).days + 1
 
+        # NSE trading hours: 9:15 AM to 3:30 PM = 375 minutes
         if interval == DataInterval.DAY:
             periods = days
             freq = 'D'
-        elif interval == DataInterval.MINUTE_15:
-            periods = days * 26  # ~26 15-min candles per trading day
-            freq = '15T'
+        elif interval == DataInterval.MINUTE_1:
+            periods = days * 375  # 375 1-min candles per trading day
+            freq = '1T'
         elif interval == DataInterval.MINUTE_5:
-            periods = days * 78
+            periods = days * 75  # 375/5 = 75 candles per day
             freq = '5T'
+        elif interval == DataInterval.MINUTE_15:
+            periods = days * 25  # 375/15 = 25 candles per day
+            freq = '15T'
+        elif interval == DataInterval.MINUTE_30:
+            periods = days * 13  # ~12.5 rounded up
+            freq = '30T'
+        elif interval == DataInterval.HOUR_1:
+            periods = days * 7  # ~6.25 rounded up
+            freq = '1H'
         else:
-            periods = days * 26
+            periods = days * 25  # Default to 15-min equivalent
             freq = '15T'
 
         # Generate timestamps
