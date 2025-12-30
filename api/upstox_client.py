@@ -81,7 +81,7 @@ class UpstoxClient:
         """
         try:
             api_instance = upstox_client.UserApi(self.api_client)
-            api_response = api_instance.get_profile()
+            api_response = api_instance.get_profile(api_version='2.0')
             logger.info("Profile retrieved successfully")
             return api_response.to_dict()
         except ApiException as e:
